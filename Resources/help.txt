@@ -1,0 +1,11 @@
+
+Usage:
+    meth <command> [argument]
+
+Unknown argument will be ignored.
+
+Commands:
+    disable    Disable mod
+    enable     Enable mod
+    freeze     Output installed mods in requirements format
+    list       List installed mods

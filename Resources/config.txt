@@ -1,0 +1,4 @@
+{
+	"payday2_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\PAYDAY 2",
+	"download_api": "http://download.paydaymods.com/download/latest/"
+}
