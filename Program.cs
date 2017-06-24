@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
+using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Xml;
 using Codeplex.Data;
 using meth.Properties;
+using System.IO.Compression;
 
 namespace meth
 {
@@ -16,6 +19,7 @@ namespace meth
 		public static string CONFIG_NAME = ".methconfig";
 		public static string help = Resources.help;
 		public static dynamic config;
+		public static WebClient client = null;
 
 		public static void Log(string text, ConsoleColor color)
 		{
@@ -110,6 +114,68 @@ namespace meth
 			}
 		}
 
+		public static void Download(string name, bool isURL=false)
+		{
+			Uri url = new Uri(config["download_api"] + name);
+			if (isURL)
+			{
+				url = new Uri(name);
+			}
+			string path = config["payday2_path"] + $@"\mods\downloads\{name}.zip";
+			if (client == null)
+			{
+				client = new WebClient();
+				client.DownloadProgressChanged += new DownloadProgressChangedEventHandler(Client_DownloadProgressChanged);
+				client.DownloadFileCompleted += new AsyncCompletedEventHandler(Client_DownloadFileCompleted);
+			}
+
+			Console.CursorVisible = false;
+			Console.Write($"Download {url}\n");
+			//client.DownloadFileAsync(url, path);
+			// TODO! use async
+			client.DownloadFile(url, path);
+		}
+		private static void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
+		{
+			Console.CursorLeft = 0;
+			int count = e.ProgressPercentage / 5;
+			string bar = String.Empty;
+			while (bar.Length == 20)
+			{
+				for (int i = 0; i == count; i++)
+				{
+					bar += "#";
+				}
+				bar += " ";
+			}
+			Console.Write($"|{bar}| {e.ProgressPercentage}% ({e.BytesReceived}/{e.TotalBytesToReceive} bytes)");
+			//Console.Write("{0}% ({1} / {2} byte)", e.ProgressPercentage, e.TotalBytesToReceive, e.BytesReceived);
+		}
+		private static void Client_DownloadFileCompleted(object sender, AsyncCompletedEventArgs e)
+		{
+			Console.CursorLeft = 0;
+			if (e.Cancelled) { Log("Cancelled.\n", ConsoleColor.Yellow); }
+			else if (e.Error != null) { Log($"ERROR: {e.Error.Message}\n", ConsoleColor.Red); }
+			else { Log("Download Completed!\n", ConsoleColor.Green); }
+			Console.CursorVisible = true;
+		}
+
+		public static void Extract(string name)
+		{
+			string src = config["payday2_path"] + $@"\mods\downloads\{name}.zip";
+			string dest = config["payday2_path"] + $@"\mod\{name}\";
+
+			if (Directory.Exists(dest)) { Directory.Delete(dest, true); }
+			try
+			{
+				ZipFile.ExtractToDirectory(src, dest, Encoding.UTF8);
+			}
+			catch (Exception e)
+			{
+				Log("\nERROR: " + e.Message, ConsoleColor.Red);
+			}
+		}
+
 		static void Main(string[] args)
 		{
 			// Check config file
@@ -167,6 +233,25 @@ namespace meth
 						GetModDatas("updates");
 						break;
 
+					case "download":
+						if (args.Length >= 2) { Download(args[1]); }
+						else { Log("Please specify mod name!\n", ConsoleColor.Red); }
+						break;
+					case "extract":
+						if (args.Length >= 2) { Extract(args[1]); }
+						else { Log("Please specify file name!\n", ConsoleColor.Red); }
+						break;
+
+					case "install":
+						bool isURL = args.Length >= 3 && args[1] == "--url" || args[2] == "--url"? true : false;
+						if (args.Length >= 2)
+						{
+							Download(args[1], isURL);
+							Extract(args[1]);
+						}
+						else { Log("Please specify mod identifier!", ConsoleColor.Red); }
+						break;
+					
 					// no command
 					default:
 						Log("\nUnknown command.\nRead help and try again.\n", ConsoleColor.Red);
